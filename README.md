@@ -74,25 +74,12 @@ CUDA_VISIBLE_DEVICES=0  python train_mvs_nerf_finetuning_pl.py  \
 
 ## Rendering
 After training or finetuning, you can render free-viewpoint videos
-with the `renderer-video.ipynb`. if you want to use your own data,
-please using the right hand coordinate system (intrinsic, nearfar and extrinsic either with
-camera to world or world to camera in opencv format) and modify the rendering scipts.
+with the `renderer-video.ipynb`. 
 
-After 10k iterations (~ 15min), you should have videos like this:
+![finetuned](https://github.com/wuyichia/Cascade_MVSNeRF/blob/3abe5a20fd7e51bc8e2629a41fbc9991cdf4963b/scan21-result-1e-scale1.gif)
+![finetuned](https://github.com/wuyichia/Cascade_MVSNeRF/blob/34e95dd84a9d7e06af425064d38baa7e3370870d/scan21-result-40e-scale025.gif)
+![finetuned](https://github.com/wuyichia/Cascade_MVSNeRF/blob/34e95dd84a9d7e06af425064d38baa7e3370870d/scan8-result-40e-scale025.gif)
 
-![finetuned](https://user-images.githubusercontent.com/16453770/124207013-15b75800-db17-11eb-8d96-e8dbe4181c98.gif)
-
-
-## Citation
-If you find our code or paper helps, please consider citing:
-```
-@article{chen2021mvsnerf,
-  title={MVSNeRF: Fast Generalizable Radiance Field Reconstruction from Multi-View Stereo},
-  author={Chen, Anpei and Xu, Zexiang and Zhao, Fuqiang and Zhang, Xiaoshuai and Xiang, Fanbo and Yu, Jingyi and Su, Hao},
-  journal={arXiv preprint arXiv:2103.15595},
-  year={2021}
-}
-```
 
 Code apdapted from [**CasMVSNet_pl**](https://github.com/kwea123/CasMVSNet_pl), [**mvsnerf**](https://github.com/apchenstu/mvsnerf)
 
