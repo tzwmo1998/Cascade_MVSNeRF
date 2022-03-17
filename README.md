@@ -46,14 +46,9 @@ CUDA_VISIBLE_DEVICES=0  python3 train_mvs_nerf_pl_ours.py \
    --N_vis 6
 ```
 
-
-*Important*: please always set batch_size to 1 when you are trining a genelize model, you can enlarge it when fine-tuning.
-
 *Checkpoint*: a pre-trained mvsnerf checkpoint is included in `ckpts/mvsnerf-v0.tar` and a pre-trained casmvsnerf checkpoint is included in `ckpts/cas23.tar`. 
 
 *Evaluation*: We also provide a rendering and quantity scipt  in `renderer.ipynb`, 
-
-
 
 
 </details>
