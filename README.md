@@ -76,7 +76,7 @@ with the `renderer-video.ipynb`.
 ![finetuned](https://github.com/wuyichia/Cascade_MVSNeRF/blob/34e95dd84a9d7e06af425064d38baa7e3370870d/scan8-result-40e-scale025.gif)
 
 
-Code apdapted from [**CasMVSNet_pl**](https://github.com/kwea123/CasMVSNet_pl), [**mvsnerf**](https://github.com/apchenstu/mvsnerf)
+Code adapted from [**CasMVSNet_pl**](https://github.com/kwea123/CasMVSNet_pl), [**mvsnerf**](https://github.com/apchenstu/mvsnerf)
 
 
 ## Relevant Works
