@@ -383,7 +383,10 @@ def index_point_feature(shape, volume_features, point_samples, pose_ref, depth_r
         
         features_all = []
         for i in range(N_views):
-            near_ref, far_ref = pose_ref['near_fars'][0], pose_ref['near_fars'][1]
+            if len(pose_ref['near_fars'].shape)>1:
+                near_ref, far_ref = pose_ref['near_fars'][i, 0], pose_ref['near_fars'][i,1]
+            else:
+                near_ref, far_ref = pose_ref['near_fars'][0], pose_ref['near_fars'][1]
             w2c_ref, intrinsic_ref = pose_ref['w2cs'][i], pose_ref['intrinsics'][i]  # assume camera 0 is reference
             ray_coordinate_ref = get_ndc_coordinate(w2c_ref, intrinsic_ref, point_samples, inv_scale, near=near_ref, far=far_ref, depth_range=depth_range, pad=pad)
             if chunk != -1:
