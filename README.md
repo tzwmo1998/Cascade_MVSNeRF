@@ -2,7 +2,6 @@
 This repository contains modified pytorch lightning implementation for the ICCV 2021 paper: [MVSNeRF: Fast Generalizable Radiance Field Reconstruction from Multi-View Stereo](https://arxiv.org/abs/2103.15595) and [Cascade Cost Volume for High-Resolution Multi-View Stereo
 and Stereo Matching](https://arxiv.org/pdf/1912.06378.pdf). We replace the MVSNet in MVSNeRF with Cascade MVSNet. <br><br>
 
-![Pipeline](configs/pipeline.png)
 
 ## Installation
 
