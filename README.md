@@ -76,7 +76,7 @@ CUDA_VISIBLE_DEVICES=0  python train_mvs_nerf_finetuning_pl.py  \
 After training or finetuning, you can render free-viewpoint videos
 with the `renderer-video.ipynb`. 
 
-![finetuned](https://github.com/wuyichia/Cascade_MVSNeRF/blob/3abe5a20fd7e51bc8e2629a41fbc9991cdf4963b/scan21-result-1e-scale1.gif)
+
 ![finetuned](https://github.com/wuyichia/Cascade_MVSNeRF/blob/34e95dd84a9d7e06af425064d38baa7e3370870d/scan21-result-40e-scale025.gif)
 ![finetuned](https://github.com/wuyichia/Cascade_MVSNeRF/blob/34e95dd84a9d7e06af425064d38baa7e3370870d/scan8-result-40e-scale025.gif)
 
