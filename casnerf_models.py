@@ -661,7 +661,7 @@ def get_depth_range_samples(cur_depth, ndepth, depth_inteval_pixel, device, dtyp
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class CasMVSNeRF(nn.Module):
-    def __init__(self, D=8, W=256, input_ch_pts=3, input_ch_views=3, input_ch_feat=8, skips=[4], net_type='v2'):
+    def __init__(self, D=8, W=256, input_ch_pts=3, input_ch_views=3, input_ch_feat=8, skips=[4], net_type='v0'):
         """
         """
         super(CasMVSNeRF, self).__init__()
@@ -671,14 +671,6 @@ class CasMVSNeRF(nn.Module):
         # we provide two version network structure
         if 'v0' == net_type:
             self.nerf = Renderer_ours(D=D, W=W,input_ch_feat=input_ch_feat,
-                     input_ch=input_ch_pts, output_ch=4, skips=skips,
-                     input_ch_views=input_ch_views, use_viewdirs=True)
-        elif 'v1' == net_type:
-            self.nerf = Renderer_attention(D=D, W=W,input_ch_feat=input_ch_feat,
-                     input_ch=input_ch_pts, output_ch=4, skips=skips,
-                     input_ch_views=input_ch_views, use_viewdirs=True)
-        elif 'v2' == net_type:
-            self.nerf = Renderer_linear(D=D, W=W,input_ch_feat=input_ch_feat,
                      input_ch=input_ch_pts, output_ch=4, skips=skips,
                      input_ch_views=input_ch_views, use_viewdirs=True)
 
