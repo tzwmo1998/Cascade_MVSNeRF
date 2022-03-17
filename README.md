@@ -30,7 +30,7 @@ Download the preprocessed [DTU training data](https://drive.google.com/file/d/1e
 and [Depth_raw](https://virutalbuy-public.oss-cn-hangzhou.aliyuncs.com/share/cascade-stereo/CasMVSNet/dtu_data/dtu_train_hr/Depths_raw.zip) from original [MVSNet repo](https://github.com/YoYo000/MVSNet)
 and unzip.
 
-#### Training model
+#### Training general model
 
 Run
 ```
@@ -54,38 +54,11 @@ CUDA_VISIBLE_DEVICES=0  python3 train_mvs_nerf_pl_ours.py \
 *Evaluation*: We also provide a rendering and quantity scipt  in `renderer.ipynb`, 
 
 
-#### Finetuning
 
-```
-CUDA_VISIBLE_DEVICES=0  python train_mvs_nerf_finetuning_pl.py  \
-    --dataset_name dtu-ft --datadir /path/to/dtu_ft \
-    --expname scan1  --with_rgb_loss  --batch_size 1024  \
-    --num_epochs 20 --imgScale_test 1.0 --white_bkgd  --pad 0 \
-    --ckpt ./path/to/model.tar --N_vis 1
-```
 
 </details>
 
-### LLFF
-<details>
-  <summary>Steps</summary>
-
-
-#### Data download
-
-Download `nerf_llff_data.zip` from [here](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1)
-
-```
-CUDA_VISIBLE_DEVICES=0  python train_mvs_nerf_finetuning_pl.py  \
-    --dataset_name llff --datadir /path/to/nerf_llff_data/{scene_name} \
-    --expname horns-ft  --with_rgb_loss  --batch_size 1024  \
-    --num_epochs 1 --imgScale_test 1.0  --pad 24 \
-    --ckpt ./ckpts/mvsnerf-v0.tar --N_vis 1
-```
-
-</details>
-
-### DTU
+### Finetuning DTU
 <details>
   <summary>Steps</summary>
 
@@ -93,8 +66,8 @@ CUDA_VISIBLE_DEVICES=0  python train_mvs_nerf_finetuning_pl.py  \
 CUDA_VISIBLE_DEVICES=0  python train_mvs_nerf_finetuning_pl.py  \
     --dataset_name dtu_ft --datadir /path/to/DTU/mvs_training/dtu/scan1 \
     --expname scan1-ft  --with_rgb_loss  --batch_size 1024  \
-    --num_epochs 1 --imgScale_test 1.0   --pad 24 \
-    --ckpt ./ckpts/mvsnerf-v0.tar --N_vis 1
+    --num_epochs 1 --imgScale_test 1.0   --pad 0 \
+    --ckpt ./ckpts/cas23.tar --N_vis 1
 ```
 
 </details>
