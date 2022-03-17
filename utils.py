@@ -153,7 +153,7 @@ def get_ndc_coordinate(w2c_ref, intrinsic_ref, point_samples, inv_scale, near=2,
     point_samples_pixel = point_samples_pixel.view(N_rays, N_samples, 3)
     return point_samples_pixel
 
-def build_rays(imgs, depths, pose_ref, w2cs, c2ws, intrinsics, near_fars, N_rays, N_samples, pad=0, is_precrop_iters=False, ref_idx=0, importanceSampling=False, with_depth=False, is_volume=False):
+def build_rays(imgs, depths, pose_ref, w2cs, c2ws, intrinsics, near_fars, N_rays, N_samples, pad=0, is_precrop_iters=False, ref_idx=0, importanceSampling=False, is_volume=False):
     '''
 
     Args:

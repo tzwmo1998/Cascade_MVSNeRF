@@ -10,7 +10,6 @@ def config_parser(cmd=None):
                         help='where to store ckpts and logs')
     parser.add_argument("--datadir", type=str, default='./data/llff/fern',
                         help='input data directory')
-    parser.add_argument('--with_depth', action='store_true')
     parser.add_argument('--all_views', action='store_true')
     parser.add_argument('--with_depth_loss', action='store_true')
     parser.add_argument('--with_rgb_loss', action='store_true')
@@ -30,8 +29,7 @@ def config_parser(cmd=None):
                         choices=['dtu', 'blender', 'llff', 'dtu_ft', 'dtu_cas'])
     parser.add_argument('--use_color_volume', default=False, action="store_true",
                         help='project colors into a volume without indexing from image everytime')
-    parser.add_argument('--use_density_volume', default=False, action="store_true",
-                        help='point sampling with density')
+
 
     # training options
     parser.add_argument("--use_casmvs", action='store_true')
@@ -41,8 +39,6 @@ def config_parser(cmd=None):
                         help='channels per layer')
     parser.add_argument("--netdepth_fine", type=int, default=6,
                         help='layers in fine network')
-    parser.add_argument("--netwidth_fine", type=int, default=128,
-                        help='channels per layer in fine network')
     parser.add_argument("--lrate", type=float, default=5e-4,
                         help='learning rate')
     parser.add_argument('--decay_step', nargs='+', type=int, default=[5000, 8000, 9000],
@@ -65,8 +61,6 @@ def config_parser(cmd=None):
     # rendering options
     parser.add_argument("--N_samples", type=int, default=128,
                         help='number of coarse samples per ray')
-    parser.add_argument("--N_importance", type=int, default=0,
-                        help='number of additional fine samples per ray')
     parser.add_argument('--use_disp', default=False, action="store_true",
                         help='use disparity depth sampling')
     parser.add_argument("--perturb", type=float, default=1.,

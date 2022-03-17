@@ -133,20 +133,7 @@ class MVSSystem(LightningModule):
         rgb, disp, acc, depth_pred, alpha, ret = rendering(args, pose_ref, rays_pts, rays_NDC, depth_candidates, rays_o, rays_dir, volume_features, imgs[:, :-1], img_feat=None, depth_range=depth_range, **self.render_kwargs_train)
 
 
-        if self.args.with_depth:
-            mask = rays_depth > 0
-            if self.args.with_depth_loss:
-                loss += self.loss(depth_pred, rays_depth, mask)
-
-            self.log(f'train/acc_l_{self.eval_metric[0]}mm', acc_threshold(depth_pred, rays_depth, mask,
-                                                                      self.eval_metric[0]).mean(), prog_bar=False)
-            self.log(f'train/acc_l_{self.eval_metric[1]}mm', acc_threshold(depth_pred, rays_depth, mask,
-                                                                      self.eval_metric[1]).mean(), prog_bar=False)
-            self.log(f'train/acc_l_{self.eval_metric[2]}mm', acc_threshold(depth_pred, rays_depth, mask,
-                                                                      self.eval_metric[2]).mean(), prog_bar=False)
-
-            abs_err = abs_error(depth_pred, rays_depth, mask).mean()
-            self.log('train/abs_err', abs_err, prog_bar=True)
+        
         
         del rays_NDC, rays_dir, rays_pts, volume_features
 
@@ -160,12 +147,7 @@ class MVSSystem(LightningModule):
             loss = loss + img_loss_coarse
 
 
-        if args.with_depth:
-            psnr = mse2psnr(img2mse(rgb.cpu()[mask], target_s.cpu()[mask]))
-            psnr_out = mse2psnr(img2mse(rgb.cpu()[~mask], target_s.cpu()[~mask]))
-            self.log('train/PSNR_out', psnr_out.item(), prog_bar=True)
-        else:
-            psnr = mse2psnr2(img_loss.item())
+        psnr = mse2psnr2(img_loss.item())
 
         with torch.no_grad():
             self.log('train/loss', loss, prog_bar=True)
@@ -229,26 +211,10 @@ class MVSSystem(LightningModule):
                 log['val_psnr'] = mse2psnr(torch.mean(img_err_abs**2))
 
 
-            if self.args.with_depth:
-
-                log['val_depth_loss_r'] = self.loss(depth_r, depth_gt_render, mask)
-
-                minmax = [2.0,6.0]
-                depth_gt_render_vis,_ = visualize_depth(depth_gt_render,minmax)
-                depth_pred_r_, _ = visualize_depth(depth_r, minmax)
-                depth_err_, _ = visualize_depth(torch.abs(depth_r-depth_gt_render)*5, minmax)
-                img_vis = torch.stack((depth_gt_render_vis, depth_pred_r_, depth_err_))
-                self.logger.experiment.add_images('val/depth_gt_pred_err', img_vis, self.global_step)
-
-                log['val_abs_err'] = abs_error(depth_r, depth_gt_render, mask).sum()
-                log[f'val_acc_{self.eval_metric[0]}mm'] = acc_threshold(depth_r, depth_gt_render, mask, self.eval_metric[0]).sum()
-                log[f'val_acc_{self.eval_metric[1]}mm'] = acc_threshold(depth_r, depth_gt_render, mask, self.eval_metric[1]).sum()
-                log[f'val_acc_{self.eval_metric[2]}mm'] = acc_threshold(depth_r, depth_gt_render, mask, self.eval_metric[2]).sum()
-                log['mask_sum'] = mask.float().sum()
-            else:
-                minmax = [2.0, 6.0]
-                depth_pred_r_, _ = visualize_depth(depth_r, minmax)
-                self.logger.experiment.add_images('val/depth_gt_pred_err', depth_pred_r_[None], self.global_step)
+            
+            minmax = [2.0, 6.0]
+            depth_pred_r_, _ = visualize_depth(depth_r, minmax)
+            self.logger.experiment.add_images('val/depth_gt_pred_err', depth_pred_r_[None], self.global_step)
 
             imgs = imgs[0]
             img_vis = torch.cat((imgs, torch.stack((rgb, img_err_abs.cpu()*5))), dim=0) # N 3 H W

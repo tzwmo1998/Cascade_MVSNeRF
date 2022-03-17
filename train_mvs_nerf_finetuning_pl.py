@@ -85,8 +85,7 @@ class MVSSystem(LightningModule):
         self.imgs = self.unpreprocess(self.imgs)
         
         # project colors to a volume
-        self.density_volume = None
-        if args.use_color_volume or args.use_density_volume:
+        if args.use_color_volume:
             for i in range(self.N_views):
                 D,H,W = volume_feature[i].shape[-3:]
                 intrinsic, c2w = self.pose_source['intrinsics'][i].clone(), self.pose_source['c2ws'][i]
@@ -94,11 +93,7 @@ class MVSSystem(LightningModule):
                 vox_pts = get_ptsvolume(H-2*args.pad,W-2*args.pad,D, args.pad,  self.near_far_source, intrinsic, c2w)
 
                 self.color_feature = build_color_volume(vox_pts, self.pose_source, self.imgs, with_mask=True).view(D,H,W,-1).unsqueeze(0).permute(0, 4, 1, 2, 3)  # [N,D,H,W,C]
-                if args.use_color_volume:
-                    volume_feature[i] = torch.cat((volume_feature[i], self.color_feature),dim=1) # [N,C,D,H,W]
-
-                if args.use_density_volume:
-                    self.vox_pts = vox_pts
+                volume_feature[i] = torch.cat((volume_feature[i], self.color_feature),dim=1) # [N,C,D,H,W]
 
                 else:
                     del vox_pts
@@ -107,14 +102,6 @@ class MVSSystem(LightningModule):
             self.volume.append(RefVolume(volume_feature[i].detach()).to(device))
         del volume_feature
 
-    def update_density_volume(self):
-        with torch.no_grad():
-            network_fn = self.render_kwargs_train['network_fn']
-            network_query_fn = self.render_kwargs_train['network_query_fn']
-            D,H,W = self.volume[0].feat_volume.shape[-3:]
-            features = torch.cat((self.volume.feat_volume, self.color_feature), dim=1).permute(0,2,3,4,1).reshape(D*H,W,-1)
-            self.density_volume = render_density(network_fn, self.vox_pts, features, network_query_fn).reshape(D,H,W)
-        del features
 
     def decode_batch(self, batch):
         rays = batch['rays'].squeeze()  # (B, 8)
@@ -159,8 +146,6 @@ class MVSSystem(LightningModule):
 
         rays, rgbs_target = self.decode_batch(batch)
 
-        if args.use_density_volume and 0 == self.global_step%200:
-            self.update_density_volume()
 
         xyz_coarse_sampled, rays_o, rays_d, z_vals = ray_marcher(rays, N_samples=args.N_samples,
                         lindisp=args.use_disp, perturb=args.perturb)
@@ -171,12 +156,6 @@ class MVSSystem(LightningModule):
         w2c_ref, intrinsic_ref = self.pose_source['w2cs'][0], self.pose_source['intrinsics'][0]
         xyz_NDC = get_ndc_coordinate(w2c_ref, intrinsic_ref, xyz_coarse_sampled, inv_scale, near=self.near_far_source[0],far=self.near_far_source[1], pad=args.pad, lindisp=args.use_disp)
 
-        # important sampleing
-        if self.density_volume is not None and args.N_importance > 0:
-            xyz_coarse_sampled, rays_o, rays_d, z_vals = ray_marcher_fine(rays, self.density_volume, z_vals, xyz_NDC,
-                                                                          N_importance=args.N_importance)
-            xyz_NDC = get_ndc_coordinate(w2c_ref, intrinsic_ref, xyz_coarse_sampled, inv_scale,
-                                         near=self.near_far_source[0], far=self.near_far_source[1], pad=args.pad, lindisp=args.use_disp)
 
         # rendering
         rgbs, disp, acc, depth_pred, alpha, extras = rendering(args, self.pose_source, xyz_coarse_sampled, xyz_NDC, z_vals, rays_o, rays_d,
@@ -235,14 +214,6 @@ class MVSSystem(LightningModule):
                 xyz_NDC = get_ndc_coordinate(w2c_ref, intrinsic_ref, xyz_coarse_sampled, inv_scale,
                                              near=self.near_far_source[0], far=self.near_far_source[1], pad=args.pad*args.imgScale_test, lindisp=args.use_disp)
 
-                # important sampleing
-                if self.density_volume is not None and args.N_importance > 0:
-                    xyz_coarse_sampled, rays_o, rays_d, z_vals = ray_marcher_fine(rays[chunk_idx*args.chunk:(chunk_idx+1)*args.chunk],
-                                    self.density_volume, z_vals,xyz_NDC,N_importance=args.N_importance)
-                    xyz_NDC = get_ndc_coordinate(w2c_ref, intrinsic_ref, xyz_coarse_sampled, inv_scale,
-                                    near=self.near_far_source[0], far=self.near_far_source[1],pad=args.pad, lindisp=args.use_disp)
-
-
                 # rendering
                 rgb, disp, acc, depth_pred, alpha, extras = rendering(args, self.pose_source, xyz_coarse_sampled,
                                                                        xyz_NDC, z_vals, rays_o, rays_d,
@@ -270,24 +241,6 @@ class MVSSystem(LightningModule):
         return log
 
     def validation_epoch_end(self, outputs):
-
-        if self.args.with_depth:
-            mean_psnr = torch.stack([x['val_psnr'] for x in outputs]).mean()
-            mask_sum = torch.stack([x['mask_sum'] for x in outputs]).sum()
-            # mean_d_loss_l = torch.stack([x['val_depth_loss_l'] for x in outputs]).mean()
-            mean_d_loss_r = torch.stack([x['val_depth_loss_r'] for x in outputs]).mean()
-            mean_abs_err = torch.stack([x['val_abs_err'] for x in outputs]).sum() / mask_sum
-            mean_acc_1mm = torch.stack([x[f'val_acc_{self.eval_metric[0]}mm'] for x in outputs]).sum() / mask_sum
-            mean_acc_2mm = torch.stack([x[f'val_acc_{self.eval_metric[1]}mm'] for x in outputs]).sum() / mask_sum
-            mean_acc_4mm = torch.stack([x[f'val_acc_{self.eval_metric[2]}mm'] for x in outputs]).sum() / mask_sum
-
-            self.log('val/d_loss_r', mean_d_loss_r, prog_bar=False)
-            self.log('val/PSNR', mean_psnr, prog_bar=False)
-
-            self.log('val/abs_err', mean_abs_err, prog_bar=False)
-            self.log(f'val/acc_{self.eval_metric[0]}mm', mean_acc_1mm, prog_bar=False)
-            self.log(f'val/acc_{self.eval_metric[1]}mm', mean_acc_2mm, prog_bar=False)
-            self.log(f'val/acc_{self.eval_metric[2]}mm', mean_acc_4mm, prog_bar=False)
 
         mean_psnr_all = torch.stack([x['val_psnr_all'] for x in outputs]).mean()
         self.log('val/PSNR_all', mean_psnr_all, prog_bar=True)

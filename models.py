@@ -590,13 +590,6 @@ def create_nerf_mvs(args, pts_embedder=True, use_mvs=False, dir_embedder=True):
     grad_vars = []
     grad_vars += list(model.parameters())
 
-    model_fine = None
-    if args.N_importance > 0:
-        model_fine = MVSNeRF(D=args.netdepth, W=args.netwidth,
-                 input_ch_pts=input_ch, skips=skips,
-                 input_ch_views=input_ch_views, input_ch_feat=args.feat_dim).to(device)
-        grad_vars += list(model_fine.parameters())
-
     network_query_fn = lambda pts, viewdirs, rays_feats, network_fn: run_network_mvs(pts, viewdirs, rays_feats, network_fn,
                                                                         embed_fn=embed_fn,
                                                                         embeddirs_fn=embeddirs_fn,
@@ -939,14 +932,22 @@ class RefVolume(nn.Module):
 
         self.feat_volume = nn.Parameter(volume)
 
-    def forward(self, ray_coordinate_ref):
+    def forward(self, shape, point_samples, pose_ref, depth_range=None, pad=0):
         '''coordinate: [N, 3]
             z,x,y
         '''
 
         device = self.feat_volume.device
-        H, W = ray_coordinate_ref.shape[-3:-1]
-        grid = ray_coordinate_ref.view(-1, 1, H, W, 3).to(device) * 2 - 1.0  # [1 1 H W 3] (x,y,z)
+        N_ray, N_sample = point_samples.shape[0], point_samples.shape[1]
+        H, W = shape[-2], shape[-1]
+#         C = volume_features[0].shape[1]
+        inv_scale = torch.tensor([W - 1, H - 1]).to(device)
+        near_ref, far_ref = pose_ref['near_fars'][0], pose_ref['near_fars'][1]
+        w2c_ref, intrinsic_ref = pose_ref['w2cs'][0], pose_ref['intrinsics'][0]  # assume camera 0 is reference
+        ray_coordinate_ref = get_ndc_coordinate(w2c_ref, intrinsic_ref, point_samples, inv_scale, near=near_ref, far=far_ref, depth_range=depth_range, pad=pad)
+        
+        
+        grid = ray_coordinate_ref.view(-1, 1, N_ray, N_sample, 3).to(device) * 2 - 1.0  # [1 1 H W 3] (x,y,z)
         features = F.grid_sample(self.feat_volume, grid, align_corners=True, mode='bilinear')[:, :, 0].permute(2, 3, 0,1).squeeze()
         return features
 

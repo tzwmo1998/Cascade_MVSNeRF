@@ -84,153 +84,6 @@ def get_embedder(multires, i=0, input_dims=3):
     embed = lambda x, eo=embedder_obj : eo.embed(x)
     return embed, embedder_obj.out_dim
 
-class ScaledDotProductAttention(nn.Module):
-    ''' Scaled Dot-Product Attention '''
-
-    def __init__(self, temperature, attn_dropout=0.1):
-        super().__init__()
-        self.temperature = temperature
-        # self.dropout = nn.Dropout(attn_dropout)
-
-    def forward(self, q, k, v, mask=None):
-
-        attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
-
-        if mask is not None:
-            attn = attn.masked_fill(mask == 0, -1e9)
-            # attn = attn * mask
-
-        attn = F.softmax(attn, dim=-1)
-        # attn = self.dropout(F.softmax(attn, dim=-1))
-        output = torch.matmul(attn, v)
-
-        return output, attn
-
-class MultiHeadAttention(nn.Module):
-    ''' Multi-Head Attention module '''
-
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
-        super().__init__()
-
-        self.n_head = n_head
-        self.d_k = d_k
-        self.d_v = d_v
-
-        self.w_qs = nn.Linear(d_model, n_head * d_k, bias=False)
-        self.w_ks = nn.Linear(d_model, n_head * d_k, bias=False)
-        self.w_vs = nn.Linear(d_model, n_head * d_v, bias=False)
-        self.fc = nn.Linear(n_head * d_v, d_model, bias=False)
-
-        self.attention = ScaledDotProductAttention(temperature=d_k ** 0.5)
-
-        # self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
-
-    def forward(self, q, k, v, mask=None):
-
-        d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
-        sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
-
-        residual = q
-
-        # Pass through the pre-attention projection: b x lq x (n*dv)
-        # Separate different heads: b x lq x n x dv
-        q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
-        k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
-        v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
-
-        # Transpose for attention dot product: b x n x lq x dv
-        q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
-
-        if mask is not None:
-            mask = mask.unsqueeze(1)   # For head axis broadcasting.
-
-        q, attn = self.attention(q, k, v, mask=mask)
-
-        # Transpose to move the head dimension back: b x lq x n x dv
-        # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
-        q = q.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
-        q = self.fc(q)
-        q += residual
-
-        q = self.layer_norm(q)
-
-        return q, attn
-class Renderer_linear(nn.Module):
-    def __init__(self, D=8, W=256, input_ch=3, input_ch_views=3, output_ch=4, input_ch_feat=8, skips=[4], use_viewdirs=False):
-        """
-        """
-        super(Renderer_linear, self).__init__()
-        self.D = D
-        self.W = W
-        self.input_ch = input_ch
-        self.input_ch_views = input_ch_views
-        self.skips = skips
-        self.use_viewdirs = use_viewdirs
-        self.in_ch_pts, self.in_ch_views, self.in_ch_feat = input_ch, input_ch_views, input_ch_feat
-
-        self.pts_linears = nn.ModuleList(
-            [nn.Linear(input_ch, W, bias=True)] + [nn.Linear(W, W, bias=True) if i not in self.skips else nn.Linear(W + input_ch, W) for i in range(D-1)])
-        self.pts_bias = nn.Linear(input_ch_feat, W)
-        self.views_linears = nn.ModuleList([nn.Linear(input_ch_views + W, W//2)])
-
-        if use_viewdirs:
-            self.feature_linear = nn.Linear(W, W)
-            self.alpha_linear = nn.Linear(W, 1)
-            self.rgb_linear = nn.Linear(W//2, 3)
-        else:
-            self.output_linear = nn.Linear(W, output_ch)
-
-        self.pts_linears.apply(weights_init)
-        self.views_linears.apply(weights_init)
-        self.feature_linear.apply(weights_init)
-        self.alpha_linear.apply(weights_init)
-        self.rgb_linear.apply(weights_init)
-
-    def forward_alpha(self,x):
-        dim = x.shape[-1]
-        input_pts, input_feats = torch.split(x, [self.in_ch_pts, self.in_ch_feat], dim=-1)
-
-        h = input_pts
-        bias = self.pts_bias(input_feats)
-        for i, l in enumerate(self.pts_linears):
-            h = self.pts_linears[i](h) + bias
-            h = F.relu(h)
-            if i in self.skips:
-                h = torch.cat([input_pts, h], -1)
-
-        alpha = self.alpha_linear(h)
-        return alpha
-
-    def forward(self, x):
-        dim = x.shape[-1]
-        in_ch_feat = dim-self.in_ch_pts-self.in_ch_views
-        input_pts, input_feats, input_views = torch.split(x, [self.in_ch_pts, in_ch_feat, self.in_ch_views], dim=-1)
-
-        h = input_pts
-        bias = self.pts_bias(input_feats) #if in_ch_feat == self.in_ch_feat else  input_feats
-        for i, l in enumerate(self.pts_linears):
-            h = self.pts_linears[i](h) + bias
-            h = F.relu(h)
-            if i in self.skips:
-                h = torch.cat([input_pts, h], -1)
-
-
-        if self.use_viewdirs:
-            alpha = torch.relu(self.alpha_linear(h))
-            feature = self.feature_linear(h)
-            h = torch.cat([feature, input_views], -1)
-
-            for i, l in enumerate(self.views_linears):
-                h = self.views_linears[i](h)
-                h = F.relu(h)
-
-            rgb = torch.sigmoid(self.rgb_linear(h))
-            outputs = torch.cat([rgb, alpha], -1)
-        else:
-            outputs = self.output_linear(h)
-
-        return outputs
     
 
 class Renderer_ours(nn.Module):
@@ -555,7 +408,6 @@ def homo_warping(src_feat, proj_mat, depth_values, src_grid=None, pad=0):
         else:
             H_pad, W_pad = H, W
 
-        # depth_values = depth_values[...,None,None].repeat(1, 1, H_pad, W_pad)
         D = depth_values.shape[1]
 
         R = proj_mat[:, :, :3]  # (B, 3, 3)
@@ -588,7 +440,7 @@ def homo_warping(src_feat, proj_mat, depth_values, src_grid=None, pad=0):
                                     align_corners=True)  # (B, C, D, H*W)
     warped_src_feat = warped_src_feat.view(B, -1, D, H_pad, W_pad)
 #     print(warped_src_feat.shape)
-    # src_grid = src_grid.view(B, 1, D, H_pad, W_pad, 2)
+
     return warped_src_feat, src_grid
 
 
@@ -860,13 +712,6 @@ def create_casnerf_mvs(args, pts_embedder=True, use_casmvs=False, dir_embedder=T
 
     grad_vars = []
     grad_vars += list(model.parameters())
-
-    model_fine = None
-    if args.N_importance > 0:
-        model_fine = CasMVSNeRF(D=args.netdepth, W=args.netwidth,
-                 input_ch_pts=input_ch, skips=skips,
-                 input_ch_views=input_ch_views, input_ch_feat=args.feat_dim).to(device)
-        grad_vars += list(model_fine.parameters())
 
     network_query_fn = lambda pts, viewdirs, rays_feats, network_fn: run_network_mvs(pts, viewdirs, rays_feats, network_fn,
                                                                         embed_fn=embed_fn,
@@ -1218,11 +1063,7 @@ class CasMVSNet(nn.Module):
             scale *=2
 
 
-#         features_stage = [imgs[i].unsqueeze(0) for i in range(imgs.shape[0])]
-#         proj_matrices_stage = proj_matrices*4
-#         stage_scale = self.stage_infos["stage{}".format(self.num_stage)]["scale"]
-#         volume_feat, in_masks, depth_range_samples = self.build_volume_costvar_img(imgs, self.num_stage-1, near, far, features_stage, proj_matrices_stage, depth_values, depth_interval, pad=0, depth=depth, with_cost_reg=False)
-        
+
 
         features_stage = [feat["stage{}".format(self.num_stage)] for feat in features]
         proj_matrices_stage = proj_matrices*scale
